@@ -1,82 +1,74 @@
 ---
-title: "Creating simulated data with correlations between them"
+title: "Hierarchical Clustering for Concept Mapping in R"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-Trying to conduct Multidimensional Scaling (MDS) for concept mapping
+Here I am providing an example of how to analyze concept mapping data in R.  This tutorial assumes that you have already collected and summed the data.  The data set that is presented is in a final version where the number of times each person placed each item (i.e. suggestion based on the prompt) into the same pile (e.g. theme, category) is summed.
 
-So the data needs to be in the format all items by all items and then have people place all items into as many piles (themes as they want). For each item that is placed into the same pile put a one if not put a zero.  Do this for every participant. Need to have row names for (e.g. Item1 through ItemX) 
+Much of this example is based on the University of Cincinnati's R Programming Guide for Hierarchical Cluster Analysis: https://uc-r.github.io/hc_clustering.
+
+Below are some packages that will be necessary for this tutorial. 
 ```{r}
 library(MASS)
-data(eurodist)
-head(eurodist)
-as.matrix(eurodist)
-```
-Now run the data analysis.  Basically PCA finds factors and which items load on those factors.  So we want a two dimensional analysis, because we want to plot the data on two dimensions I think?
-
-Need Non-metric multidimensional scaling at some point.
-```{r}
-library(magrittr)
-library(dplyr)
+library(cluster)
+library(factoextra)
 library(ggpubr)
-data(swiss)
-swiss
-```
-Here create data and figure out how to sum them and use code above to run it.
-We need data with rownames and columns that are the same and then insert data like a matrix
-
-I don't think you need to scale, because the data is on the same scale already.
-```{r}
-datTest = read.csv("datCorMD.csv", header = FALSE)
-# Creating the two dimensions that the factors are on
-mds = datTest %>%
-  dist() %>%
-  cmdscale() %>%
-  as_tibble() 
-
-colnames(mds) = c("Dim1", "Dim2")
-mds
-
-# Now trying to plot them start to see which ones are closest together on two dimensions
-ggscatter(mds, x = "Dim1", y = "Dim2", label = rownames(datTest), size = 1, repel = TRUE)
-
-# Now ones these two dimensions try to find out how they are related
-# This places each item into its own cluster in the two dimensional space
-clust = kmeans(mds, 3)$cluster %>%
-  as.factor()
-clust
-
-# Now place them into the clusters?
-mds = mds %>%
-  mutate(groups = clust)
-mds
-# Now we want to create the graphs that are pretty
-ggscatter(mds, x= "Dim1", y = "Dim2", label = rownames(datTest), color = "groups", palette = "jco", size = 1, ellipse = TRUE, ellipse.type = "convex", repel = TRUE)
-```
-Now same process but with the non-metric
-```{r}
-mds = datTest %>%
-  dist() %>%
-  isoMDS() %>%
-  .$points %>%
-  as_tibble()
-colnames(mds) = c("Dim1", "Dim2")
-mds = mds %>%
-  mutate(groups = clust)
-ggscatter(mds, x= "Dim1", y = "Dim2", label = rownames(datTest), color = "groups", palette = "jco", size = 1, ellipse = TRUE, ellipse.type = "convex", repel = TRUE)
-```
-Now try with hieractical clustering, which I think is better, because that is a better, but still need to know why: https://uc-r.github.io/hc_clustering
-```{r}
-install.packages("tidyverse")
-install.packages("cluster")
-install.packages("factoextra")
-install.packages("dendextend")
-
 library(tidyverse)
 library(cluster)
 
 ```
+The artificial data set that we have included fifteen items summed across 15 people in a concept mapping brainstorming session.  The structure of the dataset is similar to a correlation matrix where each side of the diagonals (zero in this case) are a mirror of each other.  Zero is placed into the diagonals because each item is always placed into the same category by each person, therefore, it the diagonals have no inherent meaning.  
+```{r}
+setwd("~/Desktop")
+datTest = read.csv("datCorMD.csv", header = TRUE)
+datTest
+```
+Next, we use Agglomerative clustering using the agnes function in the cluster package.  AGNES starts by placing each item into its cluster and then finds items that are most similar and combine them into similar clusters.  This process is continued until all items are placed into one cluster.  Because in this example, I am using the original data set and not a dissimilatory matrix as the data set, I set diss to FALSE.  I then standardize the data, because AGNES automatically reduces the variables to two allowing us to plot the data later on x and y coordinates.  The multicollinearity that can be present and thus decrease the accuracy of the data reduction process can be reduced by scaling the variables (i.e. turning them into z-scores).  Then the method of partitioning into clusters is selected.  Ward's method attempts to minimize the total within-cluster variance.  For information about other methods see: https://uc-r.github.io/hc_clustering  
+```{r}
+hcWard = agnes(datTest, diss = FALSE, stand = TRUE, method = "ward")
+hcC = agnes(datTest, diss = FALSE, stand = TRUE, method = "complete")
+hcWeighted = agnes(datTest, diss = FALSE, stand = TRUE, method = "weighted")
+
+```
+A bonus of hieratical clustering in the agnes function is that it produces an agglomerative coefficient, which provides an indication of model fit where a coefficient closer to one indicates a better fit.  Below we show that Ward's is the best fit relative to the complete, single, and weighted methods because it has the highest agglomerative coefficient.
+```{r}
+hcWard$ac
+hcC$ac
+hcWeighted$ac
+```
+Now that we have the data sorted into two dimensions using, hierarchical clustering, we can them group the items into different clusters.  I will start by selecting four clusters; however, we will evaluate this decision in the next step.  
+
+Then so we can see how each item is placed into which cluster, we use the mutate function to combine the clusters identification variable with the items.
+```{r}
+hcTree = cutree(hcWard, k=4)
+datTest %>%
+  mutate(cluster = hcTree)
+```
+Now we want to figure out how many clusters is the best fit for the data given the specified method for partitioning.  Three common methods are:
+
+Elbow method = visually inspecting where the elbow is on the graph of variance accounted for 
+
+Average silhouette method = measures how well each object or item lies within a cluster of different numbers of clusters
+
+Gap Cluster = This is a comparison of the intracluster variation to what we would expect with a simulated data set with no inherent clustering structure given different amounts of clusters.
+
+Unfortunately, our results are presenting different answers.  This is to be expected since I randomly generated the data.  We will stick with four for the sake of the tutorial and move on to plotting.
+```{r}
+fviz_nbclust(datTest, FUN = hcut, method = "wss")
+fviz_nbclust(datTest, FUN = hcut, method = "silhouette")
+gap_stat = clusGap(datTest, FUN = hcut, nstart = 25, K.max = 10, B = 10)
+fviz_gap_stat(gap_stat)
+```
+
+
+Finally, we can plot data onto a two-dimensional map where the clusters are linked together with lines and highlighted different colors. 
+```{r}
+fviz_cluster(list(data =datTest, cluster = hcTree))
+```
+
+
+
 
