@@ -20,7 +20,7 @@ library(tidyverse)
 library(cluster)
 
 ```
-The artificial data set that we have included fifteen items summed across 15 people in a concept mapping brainstorming session.  The structure of the dataset is similar to a correlation matrix where each side of the diagonals (zero in this case) are a mirror of each other.  Zero is placed into the diagonals because each item is always placed into the same category by each person, therefore, it the diagonals have no inherent meaning.  
+The artificial data set that we have included fifteen items summed across 15 people in a concept mapping brainstorming session.  The structure of the dataset is similar to a correlation matrix where each side of the diagonals (zero in this case) are a mirror of each other.  10 is placed into the diagonals because each item is always placed into the same category by each person; therefore the diagonals will always equal the number of people who sorted the responses.
 ```{r}
 setwd("~/Desktop")
 datTest = read.csv("datCorMD.csv", header = TRUE)
@@ -31,7 +31,6 @@ Next, we use Agglomerative clustering using the agnes function in the cluster pa
 hcWard = agnes(datTest, diss = FALSE, stand = TRUE, method = "ward")
 hcC = agnes(datTest, diss = FALSE, stand = TRUE, method = "complete")
 hcWeighted = agnes(datTest, diss = FALSE, stand = TRUE, method = "weighted")
-
 ```
 A bonus of hieratical clustering in the agnes function is that it produces an agglomerative coefficient, which provides an indication of model fit where a coefficient closer to one indicates a better fit.  Below we show that Ward's is the best fit relative to the complete, single, and weighted methods because it has the highest agglomerative coefficient.
 ```{r}
@@ -43,7 +42,7 @@ Now that we have the data sorted into two dimensions using, hierarchical cluster
 
 Then so we can see how each item is placed into which cluster, we use the mutate function to combine the clusters identification variable with the items.
 ```{r}
-hcTree = cutree(hcWard, k=4)
+hcTree = cutree(hcWard, k=3)
 datTest %>%
   mutate(cluster = hcTree)
 ```
@@ -55,15 +54,13 @@ Average silhouette method = measures how well each object or item lies within a 
 
 Gap Cluster = This is a comparison of the intracluster variation to what we would expect with a simulated data set with no inherent clustering structure given different amounts of clusters.
 
-Unfortunately, our results are presenting different answers.  This is to be expected since I randomly generated the data.  We will stick with four for the sake of the tutorial and move on to plotting.
+Unfortunately, our results are presenting different answers.  This is to be expected since I randomly generated the data.  We will stick with three for the sake of the tutorial and move on to plotting.
 ```{r}
 fviz_nbclust(datTest, FUN = hcut, method = "wss")
 fviz_nbclust(datTest, FUN = hcut, method = "silhouette")
 gap_stat = clusGap(datTest, FUN = hcut, nstart = 25, K.max = 10, B = 10)
 fviz_gap_stat(gap_stat)
 ```
-
-
 Finally, we can plot data onto a two-dimensional map where the clusters are linked together with lines and highlighted different colors. 
 ```{r}
 fviz_cluster(list(data =datTest, cluster = hcTree))
