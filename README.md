@@ -84,6 +84,57 @@ datFeasImport = subset(datFeasImport, ratings > 2 & importance > 2)
 head(datFeasImport)
 ```
 
+Explaination
+---
+title: "Bayes Loop Results"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Library the packages
+```{r}
+library(MCMCpack)
+library(descr)
+library(ggplot2)
+library(psych)
+
+library(MASS)
+library(cluster)
+library(factoextra)
+library(ggpubr)
+library(tidyverse)
+```
+Now load the data
+We get the distance by taking using this formula: http://rosalind.info/glossary/euclidean-distance/
+
+sqrt(x2-x1)^2+(y2-y1)^2...+(z2-z1)^2) for each variable in the data set.  Then for column in the distance matrix the difference between two and three for each variable and so on. 
+```{r}
+setwd("~/Desktop")
+datTest = read.csv("datCorMD.csv", header = TRUE)
+head(datTest)
+get_dist(datTest)
+
+datTest2 = datTest[,1:2]
+get_dist(datTest2)
+
+sqrt((4-10)^2+(10-4)^2)
+
+sqrt((5-4)^2+(9-10)^2)
+
+
+datTest3 = datTest[,1:3]
+get_dist(datTest3)
+sqrt((4-10)^2+(10-4)^2+(9-5)^2)
+
+```
+
+
+
+
 
 
 
